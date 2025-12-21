@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Pengenalan Wajah</title>
+    <title>AI Jarvis - Mode Teliti</title>
     <style>
         body { font-family: sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         h2 { margin-bottom: 10px; color: #3b82f6; text-align: center;}
         
         .container { position: relative; width: 100%; max-width: 640px; }
-        video { width: 100%; border-radius: 15px; border: 3px solid #334155; transform: scaleX(-1); } /* Default Mirror buat Selfie */
-        /* Kalau kamera belakang, jangan dimirror biar ga bingung */
+        video { width: 100%; border-radius: 15px; border: 3px solid #334155; transform: scaleX(-1); } 
         video.back-cam { transform: scaleX(1); }
         
         canvas { position: absolute; top: 0; left: 0; }
@@ -34,27 +33,27 @@
 </head>
 <body>
 
-    <h2>🤖 AI JARVIS KELUARGA</h2>
+    <h2>🤖 AI JARVIS (MODE TELITI)</h2>
     
     <div class="container">
         <video id="video" autoplay muted playsinline></video>
         <canvas id="overlay"></canvas>
     </div>
 
-    <div id="status">Memuat Otak AI... (Tunggu sebentar)</div>
+    <div id="status">Memuat Otak AI...</div>
 
     <div class="controls">
         <button class="btn-yellow" onclick="gantiKamera()">🔄 Ganti Kamera</button>
     </div>
 
     <div class="controls">
-        <input type="text" id="inputNama" placeholder="Nama (Contoh: Istriku)">
+        <input type="text" id="inputNama" placeholder="Nama (Contoh: Bapak)">
         <button class="btn-blue" onclick="simpanWajah()">💾 Rekam Wajah</button>
     </div>
     
     <div class="controls">
         <button class="btn-green" onclick="mulaiDeteksi()">▶️ MULAI SCAN</button>
-        <button class="btn-red" onclick="hapusData()">🗑️ Reset</button>
+        <button class="btn-red" onclick="hapusData()">🗑️ Reset Data</button>
     </div>
 
     <div class="list-wajah">
@@ -73,7 +72,7 @@
         let isDetecting = false;
         let lastSpoken = ""; 
         let currentStream = null;
-        let facingMode = 'user'; // Default Depan ('environment' untuk belakang)
+        let facingMode = 'user'; 
 
         // URL Model AI
         const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
@@ -87,46 +86,38 @@
             status.innerText = "Gagal memuat AI. Cek koneksi internet!";
         });
 
-        // 2. NYALAKAN KAMERA (BISA GANTI DEPAN/BELAKANG)
+        // 2. KAMERA
         function startVideo() {
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
-            }
+            if (currentStream) currentStream.getTracks().forEach(track => track.stop());
 
-            // Atur CSS Mirroring
-            if (facingMode === 'user') {
-                video.classList.remove('back-cam'); // Mirror (kaca)
-            } else {
-                video.classList.add('back-cam'); // Normal (jangan dibalik)
-            }
+            if (facingMode === 'user') video.classList.remove('back-cam'); 
+            else video.classList.add('back-cam'); 
 
             navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } })
                 .then(stream => {
                     currentStream = stream;
                     video.srcObject = stream;
-                    status.innerText = "Kamera Siap! Silakan Rekam Wajah.";
+                    status.innerText = "Kamera Siap! Hapus Data Dulu jika Salah.";
                     loadDariStorage(); 
                 })
                 .catch(err => {
-                    console.error("Kamera error:", err);
-                    status.innerText = "Gagal akses kamera. Coba refresh atau izinkan akses.";
+                    status.innerText = "Gagal akses kamera.";
                 });
         }
 
-        // FUNGSI GANTI KAMERA
         function gantiKamera() {
             facingMode = facingMode === 'user' ? 'environment' : 'user';
-            status.innerText = "Mengganti Kamera...";
             startVideo();
         }
 
         // 3. SIMPAN WAJAH
         async function simpanWajah() {
             const nama = inputNama.value.trim();
-            if (!nama) return alert("Isi nama dulu, Ndan!");
+            if (!nama) return alert("Isi nama dulu!");
             
             status.innerText = "Menganalisa wajah...";
             
+            // Menggunakan deteksi yang lebih detail
             const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
             
             if (detection) {
@@ -134,25 +125,28 @@
                 labeledDescriptors.push(newDescriptor);
                 simpanKeStorage();
                 
-                status.innerText = `Oke! Wajah ${nama} tersimpan.`;
+                status.innerText = `Sukses! Wajah ${nama} tersimpan.`;
                 inputNama.value = "";
                 renderList();
-                bicara(`Wajah ${nama} berhasil direkam.`);
+                bicara(`Oke, ${nama} sudah direkam.`);
             } else {
-                alert("Wajah tidak jelas! Dekatkan ke kamera.");
+                alert("Wajah tidak jelas! Pastikan cahaya terang.");
                 status.innerText = "Gagal deteksi.";
             }
         }
 
-        // 4. MULAI DETEKSI
+        // 4. MULAI DETEKSI (SENSITIVITAS DIPERBAIKI DISINI)
         async function mulaiDeteksi() {
-            if (labeledDescriptors.length === 0) return alert("Rekam wajah dulu dong!");
+            if (labeledDescriptors.length === 0) return alert("Rekam wajah dulu!");
             if (isDetecting) return;
             
             isDetecting = true;
-            status.innerText = "Mode: MENCARI TARGET...";
+            status.innerText = "MENCARI TARGET...";
             
-            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
+            // --- BAGIAN PENTING: ANGKA 0.45 ARTINYA HARUS MIRIP BANGET ---
+            // Semakin kecil angkanya (0.1 - 0.4), semakin ketat/galak.
+            // Semakin besar (0.6 - 0.8), semakin longgar/asal mirip.
+            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); 
             
             const displaySize = { width: video.videoWidth, height: video.videoHeight };
             faceapi.matchDimensions(canvas, displaySize);
@@ -169,13 +163,19 @@
                     const box = resizedDetections[i].detection.box;
                     const { label, distance } = result;
                     
-                    const text = label === 'unknown' ? "Asing" : `${label} (${Math.round((1-distance)*100)}%)`;
-                    const drawBox = new faceapi.draw.DrawBox(box, { label: text });
-                    drawBox.draw(canvas);
+                    // Logic: Kalau 'unknown', jangan tampilkan nama
+                    let text = "Asing";
+                    let color = "#ef4444"; // Merah
 
-                    if (label !== 'unknown') {
-                        bicara(`Halo, ${label}. Selamat datang!`);
+                    if (label !== "unknown") {
+                        const akurasi = Math.round((1 - distance) * 100);
+                        text = `${label} (${akurasi}%)`;
+                        color = "#10b981"; // Hijau
+                        bicara(`Halo, ${label}.`);
                     }
+
+                    const drawBox = new faceapi.draw.DrawBox(box, { label: text, boxColor: color });
+                    drawBox.draw(canvas);
                 });
             }, 1000); 
         }
@@ -183,12 +183,10 @@
         function bicara(teks) {
             if (lastSpoken === teks) return;
             lastSpoken = teks; 
-            
             const ucapan = new SpeechSynthesisUtterance(teks);
             ucapan.lang = 'id-ID'; 
             window.speechSynthesis.speak(ucapan);
-            
-            setTimeout(() => { lastSpoken = ""; }, 5000); 
+            setTimeout(() => { lastSpoken = ""; }, 4000); 
         }
 
         function simpanKeStorage() {
@@ -196,11 +194,11 @@
                 label: ld.label,
                 descriptors: ld.descriptors.map(d => Array.from(d))
             }));
-            localStorage.setItem('db_wajah', JSON.stringify(dataSimpan));
+            localStorage.setItem('db_wajah_v2', JSON.stringify(dataSimpan));
         }
 
         function loadDariStorage() {
-            const data = localStorage.getItem('db_wajah');
+            const data = localStorage.getItem('db_wajah_v2');
             if (data) {
                 const parsed = JSON.parse(data);
                 labeledDescriptors = parsed.map(d => new faceapi.LabeledFaceDescriptors(
@@ -212,127 +210,16 @@
         }
 
         function renderList() {
-            const container = document.getElementById('daftarNama');
-            container.innerHTML = labeledDescriptors.map(d => `<span class="tag">${d.label}</span>`).join('');
+            document.getElementById('daftarNama').innerHTML = labeledDescriptors.map(d => `<span class="tag">${d.label}</span>`).join('');
         }
 
         function hapusData() {
-            if(confirm("Hapus semua data?")) {
-                localStorage.removeItem('db_wajah');
+            if(confirm("Yakin hapus semua data?")) {
+                localStorage.removeItem('db_wajah_v2');
                 location.reload();
             }
         }
     </script>
 </body>
 </html>
-                // Simpan ke LocalStorage biar di-refresh ga ilang
-                simpanKeStorage();
-                
-                status.innerText = `Berhasil! Wajah ${nama} tersimpan.`;
-                inputNama.value = "";
-                renderList();
-                alert(`Wajah ${nama} berhasil direkam!`);
-            } else {
-                alert("Wajah tidak terdeteksi! Pastikan cahaya terang & wajah menghadap kamera.");
-                status.innerText = "Gagal deteksi.";
-            }
-        }
 
-        // 4. MULAI DETEKSI (UJIAN)
-        async function mulaiDeteksi() {
-            if (labeledDescriptors.length === 0) return alert("Belum ada data wajah! Simpan dulu.");
-            if (isDetecting) return;
-            
-            isDetecting = true;
-            status.innerText = "Mode: MENCARI WAJAH...";
-            
-            // Buat pencocok
-            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6); // 0.6 = Toleransi kemiripan
-            
-            const displaySize = { width: video.videoWidth, height: video.videoHeight };
-            faceapi.matchDimensions(canvas, displaySize);
-
-            setInterval(async () => {
-                // Deteksi SEMUA wajah di kamera
-                const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-                const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                
-                // Bersihkan kanvas
-                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                
-                // Cek tiap wajah
-                const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
-                
-                results.forEach((result, i) => {
-                    const box = resizedDetections[i].detection.box;
-                    const { label, distance } = result;
-                    
-                    // Gambar Kotak
-                    const text = label === 'unknown' ? "Tidak Dikenal" : `${label} (${Math.round((1-distance)*100)}%)`;
-                    const drawBox = new faceapi.draw.DrawBox(box, { label: text });
-                    drawBox.draw(canvas);
-
-                    // LOGIKA BICARA (TTS)
-                    if (label !== 'unknown') {
-                        bicara(label);
-                    }
-                });
-            }, 1000); // Cek setiap 1 detik biar ga berat
-        }
-
-        // 5. FITUR NGOMONG (TEXT TO SPEECH)
-        function bicara(nama) {
-            // Cegah ngomong berulang-ulang untuk orang yang sama
-            if (lastSpoken === nama) return;
-            
-            lastSpoken = nama; // Kunci biar ga spam
-            
-            const kalimat = `Halo, ${nama}. Selamat datang Ndan!`;
-            const ucapan = new SpeechSynthesisUtterance(kalimat);
-            ucapan.lang = 'id-ID'; // Bahasa Indonesia
-            ucapan.rate = 1; // Kecepatan bicara
-            
-            window.speechSynthesis.speak(ucapan);
-            
-            // Reset kunci setelah 5 detik (biar bisa disapa lagi nanti)
-            setTimeout(() => { lastSpoken = ""; }, 8000); 
-        }
-
-        // --- MANAJEMEN DATA ---
-        
-        function simpanKeStorage() {
-            // Kita harus ubah Float32Array jadi Array biasa biar bisa disimpan JSON
-            const dataSimpan = labeledDescriptors.map(ld => ({
-                label: ld.label,
-                descriptors: ld.descriptors.map(d => Array.from(d))
-            }));
-            localStorage.setItem('db_wajah', JSON.stringify(dataSimpan));
-        }
-
-        function loadDariStorage() {
-            const data = localStorage.getItem('db_wajah');
-            if (data) {
-                const parsed = JSON.parse(data);
-                labeledDescriptors = parsed.map(d => new faceapi.LabeledFaceDescriptors(
-                    d.label,
-                    d.descriptors.map(arr => new Float32Array(arr))
-                ));
-                renderList();
-                status.innerText = `Memuat ${labeledDescriptors.length} wajah dari memori.`;
-            }
-        }
-
-        function renderList() {
-            const container = document.getElementById('daftarNama');
-            container.innerHTML = labeledDescriptors.map(d => `<span class="tag">${d.label}</span>`).join('');
-        }
-
-        function hapusData() {
-            if(confirm("Yakin hapus semua data wajah?")) {
-                localStorage.removeItem('db_wajah');
-                location.reload();
-            }
-        }
-    </script>
-</body>
-</html>
