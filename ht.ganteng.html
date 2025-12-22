@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HT SMANJA - ALWAYS ON</title>
+    <script src='https://meet.jit.si/external_api.js'></script>
+    <style>
+        body { 
+            margin: 0; padding: 0; background: #000000; color: #00ff00; 
+            font-family: 'Courier New', monospace; 
+            display: flex; flex-direction: column; height: 100vh; 
+            overflow: hidden; user-select: none;
+        }
+
+        /* Layar Utama */
+        .screen {
+            padding: 20px; border-bottom: 2px solid #333; text-align: center;
+            height: 20vh; display: flex; flex-direction: column; justify-content: center;
+        }
+        .channel { font-size: 1.5rem; font-weight: bold; margin-bottom: 5px; }
+        .status { font-size: 0.9rem; margin-top: 5px;}
+
+        /* Tombol PTT */
+        .controls {
+            flex: 1; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center;
+            background: #000; /* Hitam pekat hemat baterai */
+        }
+
+        #btnPTT {
+            width: 180px; height: 180px; border-radius: 50%;
+            border: 4px solid #333; background: #991b1b;
+            color: white; font-size: 1.2rem; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+            text-align: center; cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #btnPTT.talking {
+            background: #15803d; border-color: #4ade80;
+            box-shadow: 0 0 40px #22c55e; transform: scale(0.95);
+        }
+
+        /* Tombol Mode Gelap (Saku) */
+        .pocket-mode-btn {
+            padding: 15px; width: 100%; background: #111; color: #555;
+            border: none; border-top: 1px solid #333; cursor: pointer;
+            font-size: 0.8rem; text-transform: uppercase;
+        }
+
+        /* INPUT LOGIN */
+        #loginArea {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 999; display: flex; 
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        input {
+            padding: 15px; background: #222; border: 1px solid #444;
+            color: #00ff00; text-align: center; font-size: 1.2rem; 
+            width: 80%; border-radius: 5px; margin-bottom: 20px;
+        }
+        .btn-start {
+            padding: 15px 40px; background: #00ff00; color: black;
+            font-weight: bold; border: none; border-radius: 5px; cursor: pointer;
+        }
+
+        #jitsi-container { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="loginArea">
+        <h1 style="color:#00ff00; margin-bottom: 40px;">📟 HT SMANJA</h1>
+        <input type="text" id="inputNama" placeholder="KODE (Cth: KIJANG-1)">
+        <input type="text" id="inputChannel" placeholder="FREKUENSI (Cth: POS_SATPAM)" value="POS_KEAMANAN">
+        <button class="btn-start" onclick="nyalakanHT()">AKTIFKAN PERANGKAT</button>
+        <p style="color:#666; font-size:0.8rem; margin-top:20px;">*Izinkan akses Mikrofon saat diminta</p>
+    </div>
+
+    <div class="screen" id="mainScreen">
+        <div class="channel" id="channelDisplay">--</div>
+        <div class="status" id="statusDisplay">MENUNGGU SINYAL...</div>
+        <div id="wakelockStatus" style="font-size: 0.7rem; color: #666; margin-top: 10px;">MODE HEMAT DAYA: OFF</div>
+    </div>
+
+    <div class="controls" id="controlArea">
+        <div id="btnPTT">TEKAN<br>BICARA</div>
+    </div>
+
+    <button class="pocket-mode-btn" onclick="togglePocketMode()">🔲 MODE SAKU (MATIKAN LAYAR)</button>
+
+    <div id="jitsi-container"></div>
+
+    <script>
+        let api = null;
+        let isTalking = false;
+        let wakeLock = null;
+        let pocketMode = false;
+
+        const btn = document.getElementById('btnPTT');
+        const statusDisplay = document.getElementById('statusDisplay');
+
+        // 1. AKTIFKAN WAKE LOCK (BIAR HP GAK TIDUR)
+        async function requestWakeLock() {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                document.getElementById('wakelockStatus').innerText = "⚡ LAYAR AKTIF (ANTI-SLEEP): ON";
+                document.getElementById('wakelockStatus').style.color = "yellow";
+            } catch (err) {
+                console.log(`${err.name}, ${err.message}`);
+                document.getElementById('wakelockStatus').innerText = "⚠️ GAGAL MENGUNCI LAYAR";
+            }
+        }
+
+        function nyalakanHT() {
+            const nama = document.getElementById('inputNama').value;
+            const channel = document.getElementById('inputChannel').value;
+            if(!nama) return alert("Isi Kode Panggilan!");
+
+            const roomID = "HT_SMANJA_" + channel.replace(/\s/g, '_');
+
+            document.getElementById('loginArea').style.display = 'none';
+            document.getElementById('channelDisplay').innerText = "FREQ: " + channel.toUpperCase();
+
+            // Panggil Jitsi
+            const domain = 'meet.jit.si';
+            const options = {
+                roomName: roomID,
+                parentNode: document.querySelector('#jitsi-container'),
+                userInfo: { displayName: nama },
+                configOverwrite: { 
+                    startWithAudioMuted: true, 
+                    startWithVideoMuted: true,
+                    prejoinPageEnabled: false
+                }
+            };
+
+            api = new JitsiMeetExternalAPI(domain, options);
+
+            api.addEventListeners({
+                videoConferenceJoined: () => {
+                    statusDisplay.innerText = "SIAGA (MONITORING)";
+                    requestWakeLock(); // <--- INI KUNCINYA
+                },
+                audioMuteStatusChanged: (e) => {
+                    // Kalau ada orang lain ngomong, visualizer bisa ditaruh sini
+                }
+            });
+
+            setupPTT();
+        }
+
+        // 2. FITUR MODE SAKU (LAYAR HITAM TOTAL)
+        function togglePocketMode() {
+            pocketMode = !pocketMode;
+            const ui = document.getElementById('mainScreen');
+            const ctrl = document.getElementById('controlArea');
+            const btnP = document.querySelector('.pocket-mode-btn');
+
+            if(pocketMode) {
+                // Sembunyikan semua biar hitam
+                ui.style.opacity = '0.1'; // Redup banget
+                ctrl.style.opacity = '0.1';
+                btnP.innerText = "👆 KETUK UNTUK NYALAKAN LAYAR";
+                btnP.style.height = "100vh";
+                btnP.style.position = "absolute";
+                btnP.style.top = "0";
+                btnP.style.opacity = "0.5";
+            } else {
+                // Balikin normal
+                ui.style.opacity = '1';
+                ctrl.style.opacity = '1';
+                btnP.innerText = "🔲 MODE SAKU (MATIKAN LAYAR)";
+                btnP.style.height = "auto";
+                btnP.style.position = "relative";
+                btnP.style.opacity = "1";
+            }
+        }
+
+        // 3. LOGIKA PTT
+        function setupPTT() {
+            btn.addEventListener('touchstart', startTalk, {passive: false});
+            btn.addEventListener('touchend', stopTalk);
+            btn.addEventListener('mousedown', startTalk);
+            btn.addEventListener('mouseup', stopTalk);
+        }
+
+        function startTalk(e) {
+            if(e) e.preventDefault();
+            if(isTalking) return;
+            isTalking = true;
+            btn.classList.add('talking');
+            btn.innerHTML = "ON AIR";
+            statusDisplay.innerText = "TRANSMITTING...";
+            statusDisplay.style.color = "red";
+            api.executeCommand('toggleAudio'); 
+        }
+
+        function stopTalk(e) {
+            if(e) e.preventDefault();
+            if(!isTalking) return;
+            isTalking = false;
+            btn.classList.remove('talking');
+            btn.innerHTML = "TEKAN<br>BICARA";
+            statusDisplay.innerText = "SIAGA (MONITORING)";
+            statusDisplay.style.color = "#00ff00";
+            api.executeCommand('toggleAudio');
+        }
+
+        // Re-request wake lock kalau user pindah tab lalu balik lagi
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        });
+    </script>
+</body>
+</html>
