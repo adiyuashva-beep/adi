@@ -3,36 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SiGanteng Meeting Room</title>
-    <script src='https://meet.jit.si/external_api.js'></script>
+    <title>SiGanteng Meeting</title>
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background: #0f172a; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center;}
         
-        /* Header Keren */
-        .header {
-            background: #1e293b; color: white; padding: 15px 20px;
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #334155; height: 60px; box-sizing: border-box;
-        }
-        .brand { font-weight: bold; font-size: 1.2rem; color: #3b82f6; display: flex; align-items: center; gap: 10px; }
-        .status { font-size: 0.8rem; color: #94a3b8; }
-
-        /* Area Meeting */
-        #meet-container { flex: 1; width: 100%; background: #000; }
-
-        /* Layar Awal (Lobby) */
-        #lobby {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #0f172a; z-index: 99; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; color: white;
-        }
-        .lobby-box {
+        .card {
             background: #1e293b; padding: 30px; border-radius: 20px;
-            width: 90%; max-width: 400px; text-align: center;
+            width: 85%; max-width: 400px;
             box-shadow: 0 0 50px rgba(59, 130, 246, 0.2); border: 1px solid #334155;
         }
+        
+        h2 { margin-top: 0; color: #3b82f6; }
+        p { color: #94a3b8; margin-bottom: 25px; line-height: 1.5; }
+
         input {
-            width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px;
+            width: 100%; padding: 15px; margin: 8px 0; border-radius: 10px;
             border: 2px solid #334155; background: #0f172a; color: white;
             font-size: 1rem; box-sizing: border-box; text-align: center;
         }
@@ -40,89 +25,46 @@
         
         button {
             width: 100%; padding: 15px; border-radius: 10px; border: none;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            background: linear-gradient(135deg, #10b981, #059669);
             color: white; font-weight: bold; font-size: 1.1rem; cursor: pointer;
-            transition: transform 0.2s; margin-top: 10px;
+            margin-top: 15px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
         }
         button:active { transform: scale(0.97); }
 
+        .note { font-size: 0.8rem; color: #64748b; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <div id="lobby">
-        <div class="lobby-box">
-            <h2 style="margin-top:0;">🎥 MEETING AKBAR</h2>
-            <p style="color:#94a3b8; margin-bottom:20px;">Rapat Online SMANJA</p>
-            
-            <input type="text" id="inputNama" placeholder="Nama Anda (Misal: Pak Adi)">
-            <input type="text" id="inputRoom" placeholder="Nama Room (Misal: RapatGuru)" value="SMANJA_General">
-            
-            <button onclick="mulaiMeeting()">🚀 GABUNG SEKARANG</button>
+    <div class="card">
+        <h2>🎥 RAPAT ONLINE</h2>
+        <p>Masuk ke ruang rapat video konferensi SMANJA.<br>Stabil & Ringan.</p>
+        
+        <input type="text" id="inputRoom" placeholder="Nama Ruang (Misal: Guru)" value="RapatUmum">
+        
+        <button onclick="bukaRapat()">🚀 BUKA RUANG RAPAT</button>
+        
+        <div class="note">
+            *Akan membuka tab baru / aplikasi Jitsi.<br>
+            *Jika diminta instal aplikasi, pilih "Launch in Web" saja.
         </div>
     </div>
-
-    <div class="header" id="headerMeet" style="display:none;">
-        <div class="brand">
-            <span>🎥 SiGanteng Meet</span>
-        </div>
-        <div class="status" id="roomNameDisplay">Lobby</div>
-    </div>
-
-    <div id="meet-container"></div>
 
     <script>
-        let api = null;
+        function bukaRapat() {
+            let room = document.getElementById('inputRoom').value.trim();
+            if(!room) return alert("Isi nama ruangan dulu Ndan!");
 
-        function mulaiMeeting() {
-            const nama = document.getElementById('inputNama').value;
-            let room = document.getElementById('inputRoom').value;
+            // Kita bikin nama room unik biar ga tabrakan sama orang sedunia
+            // Spasi diganti jadi _
+            const roomID = "SMANJA_OFFICIAL_" + room.replace(/\s/g, '_');
 
-            if(!nama) return alert("Isi nama dulu Ndan!");
-            if(!room) return alert("Isi nama room!");
-
-            // Biar roomnya unik, kita kasih prefix biar ga tabrakan sama orang lain di dunia
-            // Contoh: Kalau ngetik "Rapat", aslinya jadi "SiGanteng_SMANJA_Rapat"
-            const roomID = "SiGanteng_SMANJA_" + room.replace(/\s/g, '_');
-
-            // Sembunyikan Lobby, Munculkan Meeting
-            document.getElementById('lobby').style.display = 'none';
-            document.getElementById('headerMeet').style.display = 'flex';
-            document.getElementById('roomNameDisplay').innerText = "Room: " + room;
-
-            const domain = 'meet.jit.si';
-            const options = {
-                roomName: roomID,
-                width: '100%',
-                height: '100%',
-                parentNode: document.querySelector('#meet-container'),
-                userInfo: {
-                    displayName: nama
-                },
-                configOverwrite: { 
-                    startWithAudioMuted: true, 
-                    startWithVideoMuted: false,
-                    prejoinPageEnabled: false // Langsung masuk ga pake ngetes mic dulu
-                },
-                interfaceConfigOverwrite: {
-                    TOOLBAR_BUTTONS: [
-                        'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-                        'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-                        'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-                        'videoquality', 'filmstrip', 'tileview'
-                    ],
-                    SHOW_JITSI_WATERMARK: false, // Ngilangin logo Jitsi (Dikit)
-                }
-            };
-
-            api = new JitsiMeetExternalAPI(domain, options);
-
-            // Kalau user keluar/matikan telpon
-            api.addEventListeners({
-                videoConferenceLeft: function () {
-                    location.reload(); // Refresh halaman balik ke lobby
-                }
-            });
+            // --- RAHASIA ANTI MUTER ---
+            // Alihkan langsung ke website asli Jitsi
+            const url = `https://meet.jit.si/${roomID}`;
+            
+            // Buka di tab baru (ini teknik paling aman buat HP)
+            window.location.href = url;
         }
     </script>
 </body>
