@@ -1,225 +1,274 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Jarvis - Mode Teliti</title>
+    <title>Zoom KW Super - WebRTC</title>
     <style>
-        body { font-family: sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        h2 { margin-bottom: 10px; color: #3b82f6; text-align: center;}
+        body { background-color: #121212; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
         
-        .container { position: relative; width: 100%; max-width: 640px; }
-        video { width: 100%; border-radius: 15px; border: 3px solid #334155; transform: scaleX(-1); } 
-        video.back-cam { transform: scaleX(1); }
+        .header { width: 100%; padding: 15px; background: #1f1f1f; text-align: center; font-weight: bold; border-bottom: 1px solid #333; }
         
-        canvas { position: absolute; top: 0; left: 0; }
+        /* Area Video */
+        .video-container { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; 
+            width: 100%; max-width: 800px; padding: 10px; flex-grow: 1; 
+            align-items: center; justify-content: center;
+        }
         
-        .controls { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 640px; }
-        input { padding: 12px; border-radius: 8px; border: none; flex: 1; min-width: 200px; }
-        button { padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; display: flex; align-items: center; gap: 5px;}
+        video { 
+            width: 100%; border-radius: 10px; background: #000; 
+            border: 2px solid #333; object-fit: cover; aspect-ratio: 4/3;
+        }
+
+        /* Biar video kita sendiri (Local) ada di pojok kecil kalau di HP */
+        @media (max-width: 600px) {
+            .video-container { display: flex; position: relative; height: 100%; }
+            #remoteVideo { width: 100%; height: 100%; }
+            #localVideo { 
+                position: absolute; bottom: 20px; right: 20px; 
+                width: 100px; height: 140px; border: 2px solid white; z-index: 10;
+                transform: scaleX(-1); /* Mirror */
+            }
+        }
+
+        .controls { 
+            padding: 20px; background: #1f1f1f; width: 100%; 
+            display: flex; flex-direction: column; gap: 10px; align-items: center;
+            border-top-left-radius: 20px; border-top-right-radius: 20px;
+        }
+
+        .btn-group { display: flex; gap: 10px; width: 100%; max-width: 400px; }
         
-        .btn-blue { background: #3b82f6; color: white; }
-        .btn-green { background: #10b981; color: white; }
-        .btn-red { background: #ef4444; color: white; }
-        .btn-yellow { background: #f59e0b; color: white; }
+        input { 
+            padding: 12px; border-radius: 8px; border: none; width: 100%; 
+            text-align: center; font-weight: bold; font-size: 1.1rem; letter-spacing: 2px;
+        }
         
-        button:active { transform: scale(0.95); }
-        #status { margin-top: 10px; font-style: italic; color: #94a3b8; text-align: center; }
-        
-        .list-wajah { margin-top: 20px; text-align: left; width: 100%; max-width: 640px; background: #1e293b; padding: 15px; border-radius: 10px;}
-        .tag { display: inline-block; background: #0f172a; padding: 5px 10px; border-radius: 20px; margin: 3px; border: 1px solid #3b82f6; font-size: 0.8em; }
+        button { 
+            padding: 12px; border-radius: 8px; border: none; cursor: pointer; 
+            font-weight: bold; color: white; flex: 1;
+        }
+        .btn-create { background: #3b82f6; }
+        .btn-join { background: #10b981; }
+        .btn-hangup { background: #ef4444; width: 100%; max-width: 400px; }
+
+        #status { font-size: 0.9rem; color: #aaa; margin-bottom: 5px; }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
 
-    <h2>🤖 AI JARVIS (MODE TELITI)</h2>
-    
-    <div class="container">
-        <video id="video" autoplay muted playsinline></video>
-        <canvas id="overlay"></canvas>
-    </div>
+    <div class="header">🎥 ZOOM KW (WebRTC)</div>
 
-    <div id="status">Memuat Otak AI...</div>
-
-    <div class="controls">
-        <button class="btn-yellow" onclick="gantiKamera()">🔄 Ganti Kamera</button>
+    <div class="video-container">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <video id="remoteVideo" autoplay playsinline></video>
     </div>
 
     <div class="controls">
-        <input type="text" id="inputNama" placeholder="Nama (Contoh: Bapak)">
-        <button class="btn-blue" onclick="simpanWajah()">💾 Rekam Wajah</button>
-    </div>
-    
-    <div class="controls">
-        <button class="btn-green" onclick="mulaiDeteksi()">▶️ MULAI SCAN</button>
-        <button class="btn-red" onclick="hapusData()">🗑️ Reset Data</button>
-    </div>
-
-    <div class="list-wajah">
-        <small style="color:#aaa">Data Tersimpan:</small>
-        <div id="daftarNama"></div>
-    </div>
-
-    <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('overlay');
-        const status = document.getElementById('status');
-        const inputNama = document.getElementById('inputNama');
+        <div id="status">Siapkan Kamera...</div>
         
-        let labeledDescriptors = []; 
-        let faceMatcher; 
-        let isDetecting = false;
-        let lastSpoken = ""; 
-        let currentStream = null;
-        let facingMode = 'user'; 
+        <div class="btn-group" id="menuAwal">
+            <button class="btn-create" id="btnCreate">➕ Buat Room</button>
+            <button class="btn-join" id="btnJoin">🔗 Join Room</button>
+        </div>
 
-        // URL Model AI
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        <div class="btn-group" id="menuJoin" style="display:none;">
+            <input type="text" id="roomInput" placeholder="Masukan ID Room">
+            <button class="btn-join" id="btnJoinConfirm">Masuk</button>
+        </div>
 
-        // 1. LOAD MODEL
-        Promise.all([
-            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]).then(startVideo).catch(err => {
-            status.innerText = "Gagal memuat AI. Cek koneksi internet!";
-        });
+        <div class="btn-group" id="menuInfo" style="display:none;">
+            <input type="text" id="roomIdDisplay" readonly style="background: #333; color: #10b981;">
+            <button class="btn-create" onclick="copyID()">📋 Copy ID</button>
+        </div>
 
-        // 2. KAMERA
-        function startVideo() {
-            if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+        <button class="btn-hangup" id="btnHangup" disabled>📞 Matikan</button>
+    </div>
 
-            if (facingMode === 'user') video.classList.remove('back-cam'); 
-            else video.classList.add('back-cam'); 
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } })
-                .then(stream => {
-                    currentStream = stream;
-                    video.srcObject = stream;
-                    status.innerText = "Kamera Siap! Hapus Data Dulu jika Salah.";
-                    loadDariStorage(); 
-                })
-                .catch(err => {
-                    status.innerText = "Gagal akses kamera.";
-                });
-        }
+        // CONFIG FIREBASE (Pake punya SiGanteng gpp)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXWR-_aJyoMrUjTeNQYlcPD8p3eu58yOo",
+            authDomain: "siganteng-absensi.firebaseapp.com",
+            databaseURL: "https://siganteng-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "siganteng-absensi",
+            storageBucket: "siganteng-absensi.firebasestorage.app", 
+            messagingSenderId: "917873420012",
+            appId: "1:917873420012:web:0fe1a9eddc5f94959ba7c9"
+        };
 
-        function gantiKamera() {
-            facingMode = facingMode === 'user' ? 'environment' : 'user';
-            startVideo();
-        }
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-        // 3. SIMPAN WAJAH
-        async function simpanWajah() {
-            const nama = inputNama.value.trim();
-            if (!nama) return alert("Isi nama dulu!");
-            
-            status.innerText = "Menganalisa wajah...";
-            
-            // Menggunakan deteksi yang lebih detail
-            const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-            
-            if (detection) {
-                const newDescriptor = new faceapi.LabeledFaceDescriptors(nama, [detection.descriptor]);
-                labeledDescriptors.push(newDescriptor);
-                simpanKeStorage();
+        // --- VARIABEL UTAMA ---
+        const servers = {
+            iceServers: [
+                { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }
+            ]
+        };
+
+        let pc = new RTCPeerConnection(servers);
+        let localStream = null;
+        let remoteStream = null;
+        let roomId = null;
+
+        // ELEMENT HTML
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const status = document.getElementById('status');
+
+        // 1. SIAPKAN KAMERA & MIC
+        async function openUserMedia() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localStream = stream;
+                localVideo.srcObject = stream;
                 
-                status.innerText = `Sukses! Wajah ${nama} tersimpan.`;
-                inputNama.value = "";
-                renderList();
-                bicara(`Oke, ${nama} sudah direkam.`);
-            } else {
-                alert("Wajah tidak jelas! Pastikan cahaya terang.");
-                status.innerText = "Gagal deteksi.";
+                // Masukkan Video & Audio ke Jalur Koneksi
+                stream.getTracks().forEach(track => {
+                    pc.addTrack(track, stream);
+                });
+
+                // Siap Nerima Video Teman
+                pc.ontrack = (event) => {
+                    event.streams[0].getTracks().forEach(track => {
+                        remoteStream.addTrack(track);
+                    });
+                };
+
+                remoteStream = new MediaStream();
+                remoteVideo.srcObject = remoteStream;
+                status.innerText = "Kamera Siap. Silakan Buat atau Join Room.";
+            } catch (err) {
+                alert("Gagal akses kamera/mic: " + err);
             }
         }
+        openUserMedia();
 
-        // 4. MULAI DETEKSI (SENSITIVITAS DIPERBAIKI DISINI)
-        async function mulaiDeteksi() {
-            if (labeledDescriptors.length === 0) return alert("Rekam wajah dulu!");
-            if (isDetecting) return;
+        // 2. BUAT ROOM (HOST)
+        document.getElementById('btnCreate').onclick = async () => {
+            document.getElementById('btnCreate').disabled = true;
+            document.getElementById('btnJoin').disabled = true;
             
-            isDetecting = true;
-            status.innerText = "MENCARI TARGET...";
-            
-            // --- BAGIAN PENTING: ANGKA 0.45 ARTINYA HARUS MIRIP BANGET ---
-            // Semakin kecil angkanya (0.1 - 0.4), semakin ketat/galak.
-            // Semakin besar (0.6 - 0.8), semakin longgar/asal mirip.
-            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); 
-            
-            const displaySize = { width: video.videoWidth, height: video.videoHeight };
-            faceapi.matchDimensions(canvas, displaySize);
+            // Bikin Referensi Room di Firebase
+            const callDoc = doc(collection(db, "calls"));
+            const offerCandidates = collection(callDoc, "offerCandidates");
+            const answerCandidates = collection(callDoc, "answerCandidates");
 
-            setInterval(async () => {
-                const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-                const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                
-                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                
-                const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
-                
-                results.forEach((result, i) => {
-                    const box = resizedDetections[i].detection.box;
-                    const { label, distance } = result;
-                    
-                    // Logic: Kalau 'unknown', jangan tampilkan nama
-                    let text = "Asing";
-                    let color = "#ef4444"; // Merah
+            roomId = callDoc.id;
+            
+            // Simpan Calon Koneksi (ICE) ke Firebase
+            pc.onicecandidate = (event) => {
+                event.candidate && addDoc(offerCandidates, event.candidate.toJSON());
+            };
 
-                    if (label !== "unknown") {
-                        const akurasi = Math.round((1 - distance) * 100);
-                        text = `${label} (${akurasi}%)`;
-                        color = "#10b981"; // Hijau
-                        bicara(`Halo, ${label}.`);
+            // Bikin Penawaran (Offer)
+            const offerDescription = await pc.createOffer();
+            await pc.setLocalDescription(offerDescription);
+
+            const offer = {
+                sdp: offerDescription.sdp,
+                type: offerDescription.type,
+            };
+
+            await setDoc(callDoc, { offer });
+
+            // Dengerin Jawaban (Answer) dari Tamu
+            onSnapshot(callDoc, (snapshot) => {
+                const data = snapshot.data();
+                if (!pc.currentRemoteDescription && data?.answer) {
+                    const answerDescription = new RTCSessionDescription(data.answer);
+                    pc.setRemoteDescription(answerDescription);
+                }
+            });
+
+            // Dengerin Calon Koneksi Tamu
+            onSnapshot(answerCandidates, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        pc.addIceCandidate(candidate);
                     }
-
-                    const drawBox = new faceapi.draw.DrawBox(box, { label: text, boxColor: color });
-                    drawBox.draw(canvas);
                 });
-            }, 1000); 
-        }
+            });
 
-        function bicara(teks) {
-            if (lastSpoken === teks) return;
-            lastSpoken = teks; 
-            const ucapan = new SpeechSynthesisUtterance(teks);
-            ucapan.lang = 'id-ID'; 
-            window.speechSynthesis.speak(ucapan);
-            setTimeout(() => { lastSpoken = ""; }, 4000); 
-        }
+            // UI Update
+            document.getElementById('menuAwal').style.display = 'none';
+            document.getElementById('menuInfo').style.display = 'flex';
+            document.getElementById('roomIdDisplay').value = roomId;
+            document.getElementById('btnHangup').disabled = false;
+            status.innerText = "Menunggu lawan bicara...";
+        };
 
-        function simpanKeStorage() {
-            const dataSimpan = labeledDescriptors.map(ld => ({
-                label: ld.label,
-                descriptors: ld.descriptors.map(d => Array.from(d))
-            }));
-            localStorage.setItem('db_wajah_v2', JSON.stringify(dataSimpan));
-        }
+        // 3. JOIN ROOM (TAMU)
+        document.getElementById('btnJoin').onclick = () => {
+            document.getElementById('menuAwal').style.display = 'none';
+            document.getElementById('menuJoin').style.display = 'flex';
+        };
 
-        function loadDariStorage() {
-            const data = localStorage.getItem('db_wajah_v2');
-            if (data) {
-                const parsed = JSON.parse(data);
-                labeledDescriptors = parsed.map(d => new faceapi.LabeledFaceDescriptors(
-                    d.label,
-                    d.descriptors.map(arr => new Float32Array(arr))
-                ));
-                renderList();
-            }
-        }
+        document.getElementById('btnJoinConfirm').onclick = async () => {
+            roomId = document.getElementById('roomInput').value;
+            if(!roomId) return alert("Masukkan ID Room dulu!");
+            
+            status.innerText = "Menghubungkan...";
+            
+            const callDoc = doc(db, "calls", roomId);
+            const answerCandidates = collection(callDoc, "answerCandidates");
+            const offerCandidates = collection(callDoc, "offerCandidates");
 
-        function renderList() {
-            document.getElementById('daftarNama').innerHTML = labeledDescriptors.map(d => `<span class="tag">${d.label}</span>`).join('');
-        }
+            pc.onicecandidate = (event) => {
+                event.candidate && addDoc(answerCandidates, event.candidate.toJSON());
+            };
 
-        function hapusData() {
-            if(confirm("Yakin hapus semua data?")) {
-                localStorage.removeItem('db_wajah_v2');
-                location.reload();
-            }
+            // Ambil Data Offer dari Host
+            const callData = (await getDoc(callDoc)).data();
+            if(!callData) return alert("ID Room tidak ditemukan!");
+
+            const offerDescription = callData.offer;
+            await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
+
+            // Bikin Jawaban (Answer)
+            const answerDescription = await pc.createAnswer();
+            await pc.setLocalDescription(answerDescription);
+
+            const answer = {
+                type: answerDescription.type,
+                sdp: answerDescription.sdp,
+            };
+
+            await updateDoc(callDoc, { answer });
+
+            // Dengerin Calon Koneksi Host
+            onSnapshot(offerCandidates, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        pc.addIceCandidate(candidate);
+                    }
+                });
+            });
+            
+            document.getElementById('menuJoin').style.display = 'none';
+            document.getElementById('btnHangup').disabled = false;
+        };
+
+        // UTILS
+        document.getElementById('btnHangup').onclick = () => {
+            pc.close();
+            location.reload();
+        }
+        window.copyID = () => {
+            const copyText = document.getElementById("roomIdDisplay");
+            copyText.select();
+            document.execCommand("copy");
+            alert("ID Room disalin: " + copyText.value);
         }
     </script>
 </body>
 </html>
-
